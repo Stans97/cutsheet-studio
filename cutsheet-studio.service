@@ -1,0 +1,28 @@
+[Unit]
+Description=CutSheet Studio (withkeya.com/cutsheet) Self-Media Script Agent Workbench
+After=network.target
+
+[Service]
+User=cutsheet-studio
+Group=cutsheet-studio
+WorkingDirectory=/opt/cutsheet-studio/current
+EnvironmentFile=-/etc/cutsheet-studio/env
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3780
+Environment=DATA_DIR=/var/lib/cutsheet-studio
+Environment=COOKIE_PATH=/cutsheet/
+ExecStart=/usr/bin/env node /opt/cutsheet-studio/current/server.js
+Restart=on-failure
+RestartSec=3
+StateDirectory=cutsheet-studio
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

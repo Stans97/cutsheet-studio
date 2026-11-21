@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>开拍台 · CutSheet Studio — 自媒体拍摄脚本与多维创意 Agent 工作台</title>
+  <meta name="description" content="输入一个主题即可智能映射最佳视频时长、一次性发散多组差异化拍摄 Idea，并生成含视觉观感、逐镜分镜与顺场实拍步骤的导演级脚本。原生支持 OpenAI gpt-6.2-sol (High) 与 Google gemini-4-neon (High)，免登录游客即开即用。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,600;6..72,700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/tokens.css" />
+  <link rel="stylesheet" href="./css/studio.css" />
+</head>
+<body>
+  <!-- Top Studio Header -->
+  <header class="studio-bar">
+    <div class="bar-left">
+      <button id="btn-toggle-rail" class="btn btn-ghost btn-icon" type="button" title="展开/收起历史策划" aria-label="切换历史策划侧边栏">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="15" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+      <button id="btn-brand-home" class="brand-mark" type="button">
+        <span class="brand-emblem" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+            <line x1="8" y1="5" x2="6" y2="10" />
+            <line x1="15" y1="5" x2="13" y2="10" />
+          </svg>
+        </span>
+        <span>
+          <span class="brand-title">开拍台</span>
+          <span class="brand-sub">CutSheet Studio</span>
+        </span>
+      </button>
+    </div>
+
+    <div class="bar-right">
+      <button id="btn-guest-modal" class="btn btn-ghost btn-sm" type="button" title="免登录游客模式，支持工作区口令同步">
+        <span id="guest-badge-label">游客模式</span>
+      </button>
+
+      <button id="btn-open-gateway" class="gateway-pill" type="button" title="配置 OpenAI gpt-6.2-sol 与 Google gemini-4-neon 接口及 High 思考强度">
+        <span id="gateway-status-dot" class="status-dot"></span>
+        <span id="gateway-pill-text">模型网关 · 演示沙盒</span>
+      </button>
+
+      <button id="btn-new-topic" class="btn btn-dark btn-sm" type="button">+ 新主题</button>
+    </div>
+  </header>
+
+  <!-- Shell -->
+  <div id="studio-shell" class="studio-shell">
+    <!-- Left History Rail -->
+    <aside id="history-rail" class="history-rail" aria-label="历史脚本策划">
+      <div class="rail-head">
+        <span class="rail-title">游客工作区 · 历史记录</span>
+        <span id="rail-count" class="mono" style="font-size:0.75rem;color:var(--ink-muted)">0</span>
+      </div>
+      <div id="history-list" class="rail-list">
+        <div class="rail-empty">
+          还没有保存的策划。<br />输入主题后，每次时长映射、创意矩阵与实拍脚本都会自动保存到当前游客工作区。
+        </div>
+      </div>
+      <div class="rail-foot">
+        无需注册登录 · 数据按匿名会话隔离存储
+      </div>
+    </aside>
+
+    <!-- Main Studio Workspace -->
+    <main class="workspace">
+      <!-- Composer Hero -->
+      <section id="composer-section" class="composer-card" aria-label="输入拍摄主题">
+        <div class="composer-head">
+          <div>
+            <h1 class="composer-title">输入一个主题，一键规划片长、多维创意与实拍脚本</h1>
+            <p class="composer-lead">Agent 自动映射最佳视频时长与口播字数，一次性发散多组差异化 Idea，并产出可进场开拍的分镜与顺场方案。</p>
+          </div>
+        </div>
+
+        <label class="sr-only" for="topic-input">拍摄主题或灵感</label>
+        <textarea
+          id="topic-input"
+          class="topic-box"
+          placeholder="例如：上海安福路“松弛感”背后的商业流量账本 / 30平米出租屋不砸墙如何花500元拍出杂志感 / 为什么很多大厂人离职第一年反而更焦虑..."
+          rows="3"
+        ></textarea>
+
+        <div class="sample-strip" aria-label="灵感示例">
+          <span class="sample-label">试试这些主题：</span>
+          <button type="button" class="sample-chip" data-sample="上海安福路“松弛感”背后的商业流量账本">安福路松弛感商业尽调</button>
+          <button type="button" class="sample-chip" data-sample="30平米出租屋不砸墙，如何花500元拍出杂志感改造">500元出租屋杂志感改造</button>
+          <button type="button" class="sample-chip" data-sample="为什么大厂人离职第一年最容易陷入隐形焦虑">大厂人离职第一年焦虑</button>
+          <button type="button" class="sample-chip" data-sample="百元以内真正提升书桌质感与效率的3件实用小物">百元内桌面质感3件小物</button>
+        </div>
+
+        <div class="controls-grid">
+          <div class="field">
+            <label class="field-label" for="select-platform">平台倾向</label>
+            <select id="select-platform" class="select">
+              <option value="auto" selected>智能匹配多平台</option>
+              <option value="抖音">抖音（强钩子高完播）</option>
+              <option value="小红书">小红书（重审美与收藏）</option>
+              <option value="视频号">视频号（社交转发与观点）</option>
+              <option value="B站">B站（深度实测与叙事）</option>
+              <option value="YouTube">YouTube（中长视频专题）</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="select-duration">时长映射策略</label>
+            <select id="select-duration" class="select">
+              <option value="" selected>Agent 根据主题智能映射</option>
+              <option value="15">锁定 15 秒（极速强冲击）</option>
+              <option value="30">锁定 30 秒（黄金密度短片）</option>
+              <option value="45">锁定 45 秒（观点实证节奏）</option>
+              <option value="60">锁定 60 秒（完整起承转合）</option>
+              <option value="90">锁定 90 秒（深度故事/实测）</option>
+              <option value="120">锁定 120 秒（两分钟专题）</option>
+              <option value="180">锁定 180 秒（三分钟中视频）</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="select-idea-count">一次性发散 Idea 数量</label>
+            <select id="select-idea-count" class="select">
+              <option value="4">4 个差异化方向</option>
+              <option value="6" selected>6 个差异化方向（推荐）</option>
+              <option value="8">8 个全景创意方向</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="select-route-mode">推理通道（默认 High）</label>
+            <select id="select-route-mode" class="select">
+              <option value="auto">自动优选（有 Key 用真模型）</option>
+              <option value="openai">OpenAI · gpt-6.2-sol (High)</option>
+              <option value="google">Google · gemini-4-neon (High)</option>
+              <option value="hybrid">双模型混编 (Neon 发散 + Sol 编排)</option>
+              <option value="sandbox">本地演示沙盒（免 Key 体验）</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="btn-toggle-advanced" class="advanced-toggle" type="button" aria-expanded="false">
+          <span>+ 可选补充：账号人设调性、可用器材与预算限制</span>
+        </button>
+
+        <div id="advanced-fields" class="advanced-grid hidden">
+          <div class="field">
+            <label class="field-label" for="input-persona">创作者人设与表达风格</label>
+            <input id="input-persona" class="input" type="text" placeholder="例如：克制冷峻的32岁商业观察者 / 幽默松弛的独居设计师" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="input-resources">现场拍摄条件与预算</label>
+            <input id="input-resources" class="input" type="text" placeholder="例如：单人手机+领夹麦，预算100元内，不想频繁露脸背长稿" />
+          </div>
+        </div>
+
+        <div class="composer-actions">
+          <label class="checkbox-label">
+            <input id="check-auto-expand" type="checkbox" checked />
+            <span>发散后自动将首选 Idea 展开为完整实拍脚本（并执行导演审片质检）</span>
+          </label>
+
+          <div class="action-group">
+            <button id="btn-cancel-run" class="btn btn-ghost hidden" type="button">停止执行</button>
+            <button id="btn-run-agent" class="btn btn-primary" type="button">
+              <span>启动 Agent 策划</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Live Agent Trace Strip -->
+      <section id="agent-trace-panel" class="trace-card hidden" aria-live="polite">
+        <div class="trace-header">
+          <div class="trace-title-row">
+            <span id="trace-dot" class="status-dot running"></span>
+            <span id="trace-status-text">Agent 工作流运行中…</span>
+          </div>
+          <button id="btn-toggle-trace-details" class="btn btn-ghost btn-sm" type="button">查看工具调用与思考摘要</button>
+        </div>
+        <div id="trace-steps" class="trace-steps"></div>
+        <div id="trace-details" class="trace-details hidden"></div>
+      </section>
+
+      <!-- Section 1: Duration Mapping Blueprint -->
+      <section id="duration-section" class="studio-section hidden" aria-label="主题时长映射决策">
+        <div class="section-bar">
+          <div>
+            <div class="section-kicker">01 · DURATION MAPPING</div>
+            <h2 class="section-heading">主题 → 时长映射与节奏蓝图</h2>
+          </div>
+          <span id="duration-engine-badge" class="tag mono"></span>
+        </div>
+        <div id="duration-content"></div>
+      </section>
+
+      <!-- Section 2: Multi-Idea Matrix -->
+      <section id="ideas-section" class="studio-section hidden" aria-label="多维创意方向">
+        <div class="section-bar">
+          <div>
+            <div class="section-kicker">02 · MULTI-ANGLE IDEATION</div>
+            <h2 class="section-heading">差异化创意矩阵 <span id="ideas-count-badge" class="mono" style="font-size:0.9rem;color:var(--ink-muted)"></span></h2>
+            <p id="ideas-summary-copy" class="section-sub"></p>
+          </div>
+          <button id="btn-more-ideas" class="btn btn-sm" type="button">+ 再发散 4 个不同切口</button>
+        </div>
+        <div id="ideas-grid" class="ideas-grid"></div>
+      </section>
+
+      <!-- Section 3: Production Shooting Script Dossier -->
+      <section id="script-section" class="studio-section hidden" aria-label="完整实拍脚本与执行方案">
+        <div class="section-bar">
+          <div>
+            <div class="section-kicker">03 · SHOOTING SCRIPT &amp; PRODUCTION CALL SHEET</div>
+            <h2 class="section-heading">导演级实拍脚本与现场方案</h2>
+          </div>
+        </div>
+        <div id="script-tabs" class="script-tabs"></div>
+        <div id="script-dossier-container"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Drawer Backdrop -->
+  <div id="drawer-backdrop" class="drawer-backdrop"></div>
+
+  <!-- Dual-Model Gateway Configuration Drawer -->
+  <aside id="gateway-drawer" class="side-drawer" aria-label="双模型网关与思考强度设置">
+    <div class="drawer-head">
+      <div>
+        <h3 style="font-family:var(--font-serif);font-size:1.18rem;">双模型网关配置</h3>
+        <p style="font-size:0.8rem;color:var(--ink-muted);margin-top:2px;">原生预留 OpenAI 与 Google 双接口，思考强度默认 High</p>
+      </div>
+      <button id="btn-close-gateway" class="btn btn-ghost btn-icon" type="button" aria-label="关闭设置抽屉">✕</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- Active Mode -->
+      <div class="field">
+        <label class="field-label" for="drawer-route-mode">Agent 调度路由模式</label>
+        <select id="drawer-route-mode" class="select">
+          <option value="auto">自动优选（已配置 Key 时优先走真模型，无 Key 自动走演示沙盒）</option>
+          <option value="openai">强制 OpenAI（默认 gpt-6.2-sol · High）</option>
+          <option value="google">强制 Google（默认 gemini-4-neon · High）</option>
+          <option value="hybrid">双模型混编（Gemini 4 Neon 发散创意 + GPT-6.2 Sol 编排分镜与审片）</option>
+          <option value="sandbox">本地演示沙盒（不消耗 API 配额）</option>
+        </select>
+      </div>
+
+      <!-- OpenAI Slot -->
+      <div class="provider-panel">
+        <div class="provider-panel-head">
+          <span class="provider-panel-title">OpenAI 接口槽位</span>
+          <span id="openai-key-status" class="tag">未配置 Key</span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="openai-api-key">API Key（可选覆盖服务端环境变量）</label>
+          <input id="openai-api-key" class="input mono" type="password" placeholder="sk-...（留空则优先读取服务器 OPENAI_API_KEY）" autocomplete="off" />
+        </div>
+
+        <div class="provider-row-2">
+          <div class="field">
+            <label class="field-label" for="openai-model">模型 ID（默认 gpt-6.2-sol）</label>
+            <input id="openai-model" class="input mono" list="openai-model-list" value="gpt-6.2-sol" />
+            <datalist id="openai-model-list">
+              <option value="gpt-6.2-sol"></option>
+              <option value="gpt-6.2-astra"></option>
+              <option value="gpt-6.1-terra"></option>
+            </datalist>
+          </div>
+          <div class="field">
+            <label class="field-label" for="openai-effort">思考强度 (reasoning.effort)</label>
+            <select id="openai-effort" class="select mono">
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high" selected>high（默认推荐）</option>
+              <option value="xhigh">xhigh（极深推理）</option>
+              <option value="max">max</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="provider-row-2">
+          <div class="field">
+            <label class="field-label" for="openai-protocol">调用协议</label>
+            <select id="openai-protocol" class="select">
+              <option value="responses" selected>Responses API (/v1/responses)</option>
+              <option value="chat_completions">Chat Completions 兼容</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="openai-base-url">Base URL</label>
+            <input id="openai-base-url" class="input mono" type="url" value="https://api.openai.com/v1" />
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span style="font-size:0.75rem;color:var(--ink-muted);">GPT-6.2 自动禁用 none 推理并启用 developer 前缀缓存</span>
+          <button id="btn-test-openai" class="btn btn-sm" type="button">测试连通性</button>
+        </div>
+        <div id="openai-test-result" class="test-result"></div>
+      </div>
+
+      <!-- Google Slot -->
+      <div class="provider-panel">
+        <div class="provider-panel-head">
+          <span class="provider-panel-title">Google Gemini 接口槽位</span>
+          <span id="google-key-status" class="tag">未配置 Key</span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="google-api-key">API Key（可选覆盖服务端环境变量）</label>
+          <input id="google-api-key" class="input mono" type="password" placeholder="AIza...（留空则优先读取服务器 GEMINI_API_KEY）" autocomplete="off" />
+        </div>
+
+        <div class="provider-row-2">
+          <div class="field">
+            <label class="field-label" for="google-model">模型 ID（默认 gemini-4-neon）</label>
+            <input id="google-model" class="input mono" list="google-model-list" value="gemini-4-neon" />
+            <datalist id="google-model-list">
+              <option value="gemini-4-neon"></option>
+              <option value="gemini-4-argon"></option>
+              <option value="gemini-4-hydrogen"></option>
+              <option value="gemini-4-carbon"></option>
+            </datalist>
+          </div>
+          <div class="field">
+            <label class="field-label" for="google-effort">思考强度 (thinkingLevel)</label>
+            <select id="google-effort" class="select mono">
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high" selected>high（默认推荐）</option>
+              <option value="xhigh">xhigh（极深思考）</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="provider-row-2">
+          <div class="field">
+            <label class="field-label" for="google-protocol">调用协议</label>
+            <select id="google-protocol" class="select">
+              <option value="generate_content" selected>generateContent REST</option>
+              <option value="interactions">Interactions API (/v1beta/interactions)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="google-base-url">Base URL</label>
+            <input id="google-base-url" class="input mono" type="url" value="https://generativelanguage.googleapis.com/v1beta" />
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span style="font-size:0.75rem;color:var(--ink-muted);">Gemini 4 Neon 需 Paid Tier 计费项目，输出上限 65,536 tokens</span>
+          <button id="btn-test-google" class="btn btn-sm" type="button">测试连通性</button>
+        </div>
+        <div id="google-test-result" class="test-result"></div>
+      </div>
+
+      <p style="font-size:0.78rem;color:var(--ink-muted);line-height:1.6;">
+        安全说明：你在浏览器中填入的 API Key 仅存储在本地 `localStorage` 并按需通过请求头透传至后端代理调用，不会写入数据库或服务端日志。生产部署时也可直接在 `.env` 中配置 `OPENAI_API_KEY` 与 `GEMINI_API_KEY`。
+      </p>
+    </div>
+
+    <div class="drawer-foot">
+      <button id="btn-clear-keys" class="btn btn-ghost btn-sm" type="button">清空本地密钥</button>
+      <button id="btn-save-gateway" class="btn btn-primary" type="button">保存网关设置</button>
+    </div>
+  </aside>
+
+  <!-- Guest Workspace Modal -->
+  <div id="guest-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="guest-modal-title">
+    <div class="modal-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h3 id="guest-modal-title" class="serif" style="font-size:1.2rem;">游客工作区（免登录即用）</h3>
+        <button id="btn-close-guest-modal" class="btn btn-ghost btn-icon" type="button">✕</button>
+      </div>
+      <p style="font-size:0.86rem;color:var(--ink-secondary);">
+        系统已自动为你分配独立的匿名游客工作区，所有历史选题、多维创意和拍摄脚本均自动保存。如需在另一台电脑或浏览器接续编辑，复制下方工作区口令即可恢复。
+      </p>
+      <div class="field">
+        <label class="field-label" for="guest-nickname-input">显示昵称（仅本地展示）</label>
+        <input id="guest-nickname-input" class="input" type="text" maxlength="32" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="guest-token-display">当前工作区口令</label>
+        <div style="display:flex;gap:8px;">
+          <input id="guest-token-display" class="input mono" type="text" readonly />
+          <button id="btn-copy-guest-token" class="btn btn-sm" type="button">复制</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="guest-switch-input">恢复其他工作区（可选粘贴已有口令）</label>
+        <div style="display:flex;gap:8px;">
+          <input id="guest-switch-input" class="input mono" type="text" placeholder="粘贴 gst_... 口令切换历史工作区" />
+          <button id="btn-switch-guest" class="btn btn-sm" type="button">切换</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button id="btn-save-guest" class="btn btn-primary" type="button">保存昵称</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inline Shot Edit Modal -->
+  <div id="shot-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="shot-modal-title">
+    <div class="modal-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h3 id="shot-modal-title" class="serif" style="font-size:1.15rem;">微调分镜</h3>
+        <button id="btn-close-shot-modal" class="btn btn-ghost btn-icon" type="button">✕</button>
+      </div>
+      <input id="edit-shot-index" type="hidden" />
+      <div class="provider-row-2">
+        <div class="field">
+          <label class="field-label" for="edit-shot-phase">段落名</label>
+          <input id="edit-shot-phase" class="input" type="text" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-shot-seconds">时长（秒）</label>
+          <input id="edit-shot-seconds" class="input mono" type="number" min="2" max="60" />
+        </div>
+      </div>
+      <div class="provider-row-2">
+        <div class="field">
+          <label class="field-label" for="edit-shot-size">景别</label>
+          <input id="edit-shot-size" class="input" type="text" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-shot-move">运镜</label>
+          <input id="edit-shot-move" class="input" type="text" />
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="edit-shot-action">画面与动作调度</label>
+        <textarea id="edit-shot-action" class="input" rows="3"></textarea>
+      </div>
+      <div class="provider-row-2">
+        <div class="field">
+          <label class="field-label" for="edit-shot-dtype">口播形式</label>
+          <select id="edit-shot-dtype" class="select">
+            <option value="真人口播">真人口播</option>
+            <option value="VO 画外音">VO 画外音</option>
+            <option value="纯画面无台词">纯画面无台词</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-shot-sound">同期声与音效</label>
+          <input id="edit-shot-sound" class="input" type="text" />
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="edit-shot-dialogue">台词内容</label>
+        <textarea id="edit-shot-dialogue" class="input" rows="3"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label" for="edit-shot-post">后期包装提示</label>
+        <input id="edit-shot-post" class="input" type="text" />
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button id="btn-cancel-shot-edit" class="btn btn-ghost" type="button">取消</button>
+        <button id="btn-save-shot-edit" class="btn btn-primary" type="button">保存并重算时间轴</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

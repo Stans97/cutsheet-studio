@@ -1,0 +1,147 @@
+/* CutSheet Studio · Editorial Cinema Production Design Tokens */
+:root {
+  /* Warm archival paper & studio ink palette */
+  --bg-canvas: #f6f3ec;
+  --bg-surface: #fffdf9;
+  --bg-subtle: #eee9de;
+  --bg-elevated: #ffffff;
+  --bg-ink: #191816;
+  --bg-ink-soft: #262421;
+
+  /* Ink & typography hierarchy */
+  --ink-primary: #181715;
+  --ink-secondary: #4f4a42;
+  --ink-muted: #7c7569;
+  --ink-on-dark: #f7f4ee;
+
+  /* Clapperboard vermilion-terracotta accent (warm, filmic, zero neon) */
+  --accent: #be3d27;
+  --accent-hover: #9f301d;
+  --accent-soft: #f9ece8;
+  --accent-border: #e6bfb6;
+
+  /* Semantic production status tones */
+  --ok: #266446;
+  --ok-soft: #e9f3ee;
+  --warn: #9c6414;
+  --warn-soft: #f9f1e1;
+  --danger: #b42318;
+  --danger-soft: #fdeceb;
+
+  /* Hairlines & dividers */
+  --border: #e3dcd0;
+  --border-strong: #cfc6b6;
+
+  /* Typography */
+  --font-serif: "Newsreader", "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
+  --font-sans: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Elevation */
+  --shadow-xs: 0 1px 2px rgba(24, 23, 21, 0.04);
+  --shadow-sm: 0 2px 8px rgba(24, 23, 21, 0.05), 0 1px 2px rgba(24, 23, 21, 0.04);
+  --shadow-md: 0 10px 28px rgba(24, 23, 21, 0.08), 0 2px 6px rgba(24, 23, 21, 0.04);
+  --shadow-drawer: -12px 0 36px rgba(24, 23, 21, 0.14);
+
+  /* Radii */
+  --radius-xs: 5px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Layout metrics */
+  --topbar-h: 58px;
+  --rail-w: 268px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--bg-canvas);
+  background-image: radial-gradient(rgba(24, 23, 21, 0.025) 1px, transparent 0);
+  background-size: 24px 24px;
+  color: var(--ink-primary);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  color: var(--ink-primary);
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.serif {
+  font-family: var(--font-serif);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d5cdc0;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #bfb5a5;
+}

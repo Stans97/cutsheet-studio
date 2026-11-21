@@ -1,0 +1,23 @@
+{
+  "name": "creator-script-studio",
+  "version": "1.0.0",
+  "description": "开拍台 CutSheet Studio — 自媒体拍摄脚本与多维创意 Agent 工作台（支持 OpenAI gpt-6.2-sol High 与 Google gemini-4-neon High 双模型网关，游客模式即开即用）",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "self-media",
+    "video-script",
+    "storyboard",
+    "ai-agent",
+    "gpt-6.2-sol",
+    "gemini-4-neon"
+  ],
+  "license": "MIT"
+}

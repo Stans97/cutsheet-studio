@@ -1,0 +1,8 @@
+[Unit]
+Description=Check and atomically deploy CutSheet Studio from GitHub main
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/cutsheet-studio-auto-deploy
