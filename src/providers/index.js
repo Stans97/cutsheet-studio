@@ -42,6 +42,15 @@ export function extractJsonObject(rawText) {
   throw new Error(`无法将模型返回内容解析为结构化 JSON：${text.slice(0, 180)}`);
 }
 
+function serverGoogleEndpoint(baseUrl) {
+  const url = new URL(baseUrl);
+  const googleApi = /^(?:generativelanguage|(?:[a-z0-9-]+-)?aiplatform)\.googleapis\.com$/.test(url.hostname);
+  if (!googleApi || url.protocol !== 'https:' || url.port || url.username || url.password || url.search || url.hash) {
+    throw new Error('服务器 Gemini Key 需要配置 Google HTTPS API 端点');
+  }
+  return url.href.replace(/\/+$/, '');
+}
+
 /**
  * Merge server-side environment defaults with per-request guest overrides.
  * Never persists user-supplied API keys to disk.
@@ -49,7 +58,9 @@ export function extractJsonObject(rawText) {
 export function resolveGatewaySettings(requestOverride = {}, headers = {}) {
   const cfg = getConfig();
   const openaiKey = (headers['x-openai-api-key'] || requestOverride.openai?.apiKey || cfg.providers.openai.apiKey || '').trim();
-  const googleKey = (headers['x-google-api-key'] || requestOverride.google?.apiKey || cfg.providers.google.apiKey || '').trim();
+  const guestGoogleKey = headers['x-google-api-key']?.trim() || requestOverride.google?.apiKey?.trim();
+  const googleKey = guestGoogleKey || cfg.providers.google.apiKey;
+  const serverGoogleKeyInUse = Boolean(googleKey && !guestGoogleKey);
 
   const openai = {
     provider: 'openai',
@@ -72,12 +83,10 @@ export function resolveGatewaySettings(requestOverride = {}, headers = {}) {
     provider: 'google',
     apiKey: googleKey,
     hasKey: Boolean(googleKey),
-    keySource: headers['x-google-api-key'] || requestOverride.google?.apiKey
-      ? 'browser'
-      : cfg.providers.google.apiKey
-        ? 'server'
-        : 'none',
-    baseUrl: (requestOverride.google?.baseUrl || cfg.providers.google.baseUrl).replace(/\/+$/, ''),
+    keySource: guestGoogleKey ? 'browser' : serverGoogleKeyInUse ? 'server' : 'none',
+    baseUrl: serverGoogleKeyInUse
+      ? serverGoogleEndpoint(cfg.providers.google.baseUrl)
+      : (requestOverride.google?.baseUrl || cfg.providers.google.baseUrl).replace(/\/+$/, ''),
     model: (requestOverride.google?.model || cfg.providers.google.defaultModel).trim(),
     thinkingLevel: sanitizeGoogleThinkingLevel(
       requestOverride.google?.thinkingLevel || cfg.providers.google.defaultEffort

@@ -8,6 +8,7 @@ import {
 import {
   buildGoogleGenerateContentPayload,
   buildGoogleInteractionsPayload,
+  callGoogle,
   parseGoogleResult
 } from '../src/providers/google.js';
 import { extractJsonObject, pickStageProvider, resolveGatewaySettings } from '../src/providers/index.js';
@@ -158,4 +159,46 @@ test('Hybrid routing dispatches ideation to Google Neon and script architecture 
 test('extractJsonObject parses markdown-fenced and prose-wrapped JSON cleanly', () => {
   assert.deepEqual(extractJsonObject('```json\n{"a": 1}\n```'), { a: 1 });
   assert.deepEqual(extractJsonObject('好的，结果如下：{"b":"ok"} 谢谢'), { b: 'ok' });
+});
+
+test('Gemini server credentials use only the configured Google endpoint', (t) => {
+  const { GEMINI_API_KEY, GEMINI_BASE_URL } = process.env;
+  t.after(() => {
+    for (const [name, value] of Object.entries({ GEMINI_API_KEY, GEMINI_BASE_URL })) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  });
+  const vertex = 'https://aiplatform.googleapis.com/v1/projects/demo/locations/global/publishers/google';
+  const custom = 'https://client.example/v1';
+  process.env.GEMINI_API_KEY = 'test-server';
+  process.env.GEMINI_BASE_URL = vertex;
+  const override = { google: { baseUrl: custom } };
+  const server = resolveGatewaySettings(override).google;
+  assert.equal(server.keySource, 'server');
+  assert.equal(server.baseUrl, vertex);
+  assert.equal(resolveGatewaySettings(override, { 'x-google-api-key': '   ' }).google.baseUrl, vertex);
+
+  for (const guest of [
+    resolveGatewaySettings(override, { 'x-google-api-key': 'test-guest' }).google,
+    resolveGatewaySettings({ google: { baseUrl: custom, apiKey: 'test-guest' } }).google
+  ]) {
+    assert.equal(guest.apiKey, 'test-guest');
+    assert.equal(guest.baseUrl, custom);
+  }
+  for (const invalid of [custom, 'http://generativelanguage.googleapis.com/v1beta']) {
+    process.env.GEMINI_BASE_URL = invalid;
+    assert.throws(() => resolveGatewaySettings(), /Google HTTPS/);
+  }
+});
+
+test('Gemini transport disables redirects for both protocols', async (t) => {
+  const transport = t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    assert.equal(options.redirect, 'error');
+    return Response.json({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] });
+  });
+  for (const protocol of ['generate_content', 'interactions']) {
+    await callGoogle({ apiKey: 'test-only', protocol, userPrompt: 'ping' });
+  }
+  assert.equal(transport.mock.callCount(), 2);
 });

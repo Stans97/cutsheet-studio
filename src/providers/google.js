@@ -233,6 +233,7 @@ export async function callGoogle({
 
   const response = await fetch(endpoint, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       'Content-Type': 'application/json',
       'x-goog-api-key': apiKey
