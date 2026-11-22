@@ -152,8 +152,8 @@ function renderTrace(statusText = null) {
     $('trace-status-text').textContent = statusText;
   } else {
     $('trace-status-text').textContent = state.isRunning
-      ? 'Agent 多阶段推理编排中…'
-      : `Agent 编排完成（共 ${state.traceSteps.length} 个阶段）`;
+      ? 'Agent 执行中…'
+      : `已完成（${state.traceSteps.length} 步）`;
   }
 
   const { stepsHtml, detailsHtml } = renderAgentTrace(state.traceSteps, state.traceDetailsExpanded);
@@ -161,9 +161,7 @@ function renderTrace(statusText = null) {
   const detailsEl = $('trace-details');
   detailsEl.innerHTML = detailsHtml;
   detailsEl.classList.toggle('hidden', !state.traceDetailsExpanded);
-  $('btn-toggle-trace-details').textContent = state.traceDetailsExpanded
-    ? '收起工具与思考详情'
-    : '查看工具调用与思考摘要';
+  $('btn-toggle-trace-details').textContent = state.traceDetailsExpanded ? '收起' : '详情';
 }
 
 function renderActiveProject() {
@@ -192,9 +190,8 @@ function renderActiveProject() {
 
   if (Array.isArray(proj.ideas) && proj.ideas.length) {
     ideaSec.classList.remove('hidden');
-    $('ideas-count-badge').textContent = `(${proj.ideas.length} 个方向)`;
-    $('ideas-summary-copy').textContent =
-      proj.brief?.creativeDirectionSummary || '点击任意创意卡片即可展开逐镜分镜与现场实拍步骤。';
+    $('ideas-count-badge').textContent = `(${proj.ideas.length})`;
+    $('ideas-summary-copy').textContent = proj.brief?.creativeDirectionSummary || '';
     $('ideas-grid').innerHTML = renderIdeaCards(proj.ideas, proj.scripts || [], state.activeScriptId);
   } else {
     ideaSec.classList.add('hidden');
@@ -217,7 +214,7 @@ function setRunning(running) {
   $('btn-run-agent').disabled = running;
   $('btn-more-ideas').disabled = running;
   $('btn-cancel-run').classList.toggle('hidden', !running);
-  $('btn-run-agent').textContent = running ? 'Agent 推理编排中…' : '启动 Agent 策划';
+  $('btn-run-agent').textContent = running ? '生成中…' : '开始生成';
 }
 
 function upsertTraceStep(stepPayload) {

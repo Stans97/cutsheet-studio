@@ -8,28 +8,19 @@ export function escapeHtml(str) {
 }
 
 export function formatProviderTag(provider, model, level) {
-  if (!provider || provider === 'sandbox') {
-    return '演示沙盒 · High 模拟';
-  }
-  const pLabel = provider === 'openai' ? 'OpenAI' : provider === 'google' ? 'Google' : provider;
+  if (!provider || provider === 'sandbox') return '沙盒';
   const lvl = level ? ` · ${String(level).toUpperCase()}` : '';
-  return `${pLabel} · ${model || ''}${lvl}`;
+  return `${model || provider}${lvl}`;
 }
 
 export function renderHistoryList(projects, activeProjectId) {
   if (!projects.length) {
-    return `
-      <div class="rail-empty">
-        还没有保存的策划。<br />
-        输入主题后，每次时长映射、创意矩阵与实拍脚本都会自动保存到当前游客工作区。
-      </div>
-    `;
+    return '<div class="rail-empty">暂无记录</div>';
   }
-
   return projects
     .map((p) => {
       const active = p.id === activeProjectId ? 'active' : '';
-      const sec = p.targetSeconds ? `${p.targetSeconds}s` : '待定';
+      const sec = p.targetSeconds ? `${p.targetSeconds}s` : '-';
       const ideaCount = p.ideaCount ?? (p.ideas?.length || 0);
       const scriptCount = p.scriptCount ?? (p.scripts?.length || 0);
       return `
@@ -38,9 +29,9 @@ export function renderHistoryList(projects, activeProjectId) {
           <div class="history-item-meta mono">
             <span>${escapeHtml(sec)}</span>
             <span>· ${ideaCount} Idea</span>
-            <span>· ${scriptCount} 脚本</span>
+            <span>· ${scriptCount} 稿</span>
           </div>
-          <button type="button" class="history-delete" data-delete-project="${escapeHtml(p.id)}" title="删除此策划" aria-label="删除策划">✕</button>
+          <button type="button" class="history-delete" data-delete-project="${escapeHtml(p.id)}" title="删除">✕</button>
         </div>
       `;
     })
@@ -51,52 +42,37 @@ export function renderAgentTrace(steps, showDetails) {
   const stepsHtml = steps
     .map((s) => {
       const icon = s.status === 'completed' ? '✓' : s.status === 'error' ? '!' : '◌';
-      const metaParts = [];
-      if (s.model) metaParts.push(s.isSandbox ? 'sandbox' : s.model);
-      if (s.reasoningLevel) metaParts.push(String(s.reasoningLevel).toUpperCase());
-      if (s.latencyMs) metaParts.push(`${(s.latencyMs / 1000).toFixed(1)}s`);
-      if (s.usage?.reasoningTokens) metaParts.push(`思考 ${s.usage.reasoningTokens} tok`);
+      const meta = [
+        s.isSandbox ? 'sandbox' : s.model,
+        s.reasoningLevel ? String(s.reasoningLevel).toUpperCase() : '',
+        s.latencyMs ? `${(s.latencyMs / 1000).toFixed(1)}s` : ''
+      ]
+        .filter(Boolean)
+        .join(' · ');
       return `
         <div class="trace-step ${escapeHtml(s.status || '')}">
           <div class="trace-step-top">
-            <span>${escapeHtml(s.label)}</span>
+            <span>${escapeHtml(s.label.replace(/\s*Agent.*$/, ''))}</span>
             <span class="mono">${icon}</span>
           </div>
-          <div class="trace-step-meta">${escapeHtml(metaParts.join(' · ') || '调度中…')}</div>
+          <div class="trace-step-meta">${escapeHtml(meta || '…')}</div>
         </div>
       `;
     })
     .join('');
 
-  if (!showDetails) {
-    return { stepsHtml, detailsHtml: '' };
-  }
+  if (!showDetails) return { stepsHtml, detailsHtml: '' };
 
   const detailsHtml = steps
     .map((s) => {
       const tools = (s.toolsUsed || [])
-        .map(
-          (t) =>
-            `<div style="margin-top:4px;"><span class="trace-tool-tag">TOOL · ${escapeHtml(t.name)}</span><span>${escapeHtml(t.summary)}</span></div>`
-        )
+        .map((t) => `<div style="margin-top:4px;"><span class="trace-tool-tag">${escapeHtml(t.name)}</span>${escapeHtml(t.summary)}</div>`)
         .join('');
-      const thought = s.thoughtSummary
-        ? `<div style="margin-top:6px;color:var(--ink-secondary);"><strong>思考摘要：</strong>${escapeHtml(s.thoughtSummary)}</div>`
+      const thought = s.thoughtSummary ? `<div style="margin-top:4px;">${escapeHtml(s.thoughtSummary)}</div>` : '';
+      const tok = s.usage?.totalTokens
+        ? `<div class="mono" style="margin-top:4px;font-size:0.72rem;color:var(--ink-muted);">in ${s.usage.inputTokens ?? '-'} / out ${s.usage.outputTokens ?? '-'} / think ${s.usage.reasoningTokens ?? '-'}</div>`
         : '';
-      const usage = s.usage?.totalTokens
-        ? `<div class="mono" style="margin-top:5px;font-size:0.74rem;color:var(--ink-muted);">Tokens: 输入 ${s.usage.inputTokens ?? '-'} / 输出 ${s.usage.outputTokens ?? '-'} / 思考 ${s.usage.reasoningTokens ?? '-'} / 合计 ${s.usage.totalTokens}</div>`
-        : '';
-      return `
-        <div class="trace-detail-item">
-          <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-            <strong>${escapeHtml(s.label)}</strong>
-            <span class="mono" style="font-size:0.74rem;color:var(--ink-muted);">${escapeHtml(formatProviderTag(s.provider, s.model, s.reasoningLevel))}</span>
-          </div>
-          ${tools}
-          ${thought}
-          ${usage}
-        </div>
-      `;
+      return `<div class="trace-detail-item"><strong>${escapeHtml(s.label)}</strong>${tools}${thought}${tok}</div>`;
     })
     .join('');
 
@@ -112,75 +88,44 @@ export function renderDurationPlan(plan) {
   const trackBars = curve
     .map(
       (seg) =>
-        `<div class="pacing-seg" style="width:${((Number(seg.percent) || 20) / totalPct) * 100}%" title="${escapeHtml(seg.segment)} (${escapeHtml(seg.range)})"></div>`
+        `<div class="pacing-seg" style="width:${((Number(seg.percent) || 20) / totalPct) * 100}%" title="${escapeHtml(seg.segment)} ${escapeHtml(seg.range)}"></div>`
     )
     .join('');
 
-  const trackLegend = curve
-    .map(
-      (seg) => `
-      <div class="pacing-legend-item">
-        <div class="pacing-legend-top">
-          <span>${escapeHtml(seg.segment)}</span>
-          <span class="mono" style="color:var(--accent);font-size:0.75rem;">${escapeHtml(seg.range)}</span>
-        </div>
-        <div style="color:var(--ink-muted);">${escapeHtml(seg.goal)}</div>
-      </div>
-    `
-    )
+  const trackLabels = curve
+    .map((seg) => `<span class="metric-chip"><strong>${escapeHtml(seg.segment)}</strong> <span class="mono">${escapeHtml(seg.range)}</span></span>`)
     .join('');
 
   const altChips = (plan.alternatives || [])
     .map(
-      (alt) => `
-      <button type="button" class="btn btn-sm" data-remap-seconds="${alt.seconds}" title="${escapeHtml(alt.useCase)}">
-        <span class="mono">${alt.seconds}s</span> · ${escapeHtml(alt.label.replace(/^\d+秒\s*[·\-]?\s*/, ''))}
-      </button>
-    `
+      (alt) =>
+        `<button type="button" class="btn btn-sm" data-remap-seconds="${alt.seconds}">切 ${alt.seconds}s</button>`
     )
     .join('');
 
   return `
-    <div class="duration-card">
-      <div class="duration-top">
-        <div class="duration-figure-box">
-          <div class="duration-number">${escapeHtml(plan.recommendedSeconds)}<span class="duration-unit">s</span></div>
-          <div class="duration-cat">${escapeHtml(plan.topicCategory || '推荐片长')}</div>
+    <div class="duration-card" style="padding:18px 20px;gap:14px;">
+      <div class="duration-top" style="gap:18px;align-items:center;">
+        <div class="duration-figure-box" style="min-width:118px;padding:12px 16px;">
+          <div class="duration-number" style="font-size:2rem;">${escapeHtml(plan.recommendedSeconds)}<span class="duration-unit">s</span></div>
+          <div class="duration-cat">${escapeHtml(plan.topicCategory || '')}</div>
         </div>
-
-        <div class="duration-copy">
-          <div class="duration-label-title">${escapeHtml(plan.durationLabel)}</div>
-          <p class="duration-rationale">${escapeHtml(plan.rationale)}</p>
-          ${plan.platformAdvice ? `<p style="font-size:0.84rem;color:var(--ink-muted);">平台策略：${escapeHtml(plan.platformAdvice)}</p>` : ''}
+        <div class="duration-copy" style="gap:8px;">
+          <p class="duration-rationale" style="color:var(--ink-primary);">${escapeHtml(plan.rationale)}</p>
           <div class="metrics-row">
-            <span class="metric-chip">建议镜头 <strong>${escapeHtml(plan.recommendedShots || 6)} 镜</strong></span>
-            <span class="metric-chip">安全口播 <strong>${escapeHtml(wb.min || 100)}–${escapeHtml(wb.max || 180)} 字</strong>（理想 ${escapeHtml(wb.ideal || 150)} 字）</span>
-            <span class="metric-chip">语速控制 <strong>${escapeHtml(wb.charsPerSecond || 3.8)} 字/秒</strong></span>
-            <span class="metric-chip">声画呼吸留白 <strong>${escapeHtml(wb.breathReserveSeconds || 5)}s</strong></span>
+            <span class="metric-chip"><strong>${escapeHtml(plan.recommendedShots || 6)} 镜</strong></span>
+            <span class="metric-chip">口播 <strong>${escapeHtml(wb.min || 100)}–${escapeHtml(wb.max || 180)} 字</strong></span>
+            <span class="metric-chip"><strong>${escapeHtml(wb.charsPerSecond || 3.8)} 字/秒</strong></span>
+            ${altChips}
           </div>
         </div>
       </div>
-
       ${
         curve.length
-          ? `
-        <div>
-          <div class="field-label" style="margin-bottom:7px;">节奏曲线分配</div>
-          <div class="pacing-track">${trackBars}</div>
-          <div class="pacing-legend">${trackLegend}</div>
-        </div>
-      `
-          : ''
-      }
-
-      ${
-        altChips
-          ? `
-        <div class="alt-durations">
-          <span class="sample-label">想切换片长？点击直接按备选时长展开当前首选创意：</span>
-          ${altChips}
-        </div>
-      `
+          ? `<div style="display:flex;flex-direction:column;gap:8px;">
+              <div class="pacing-track">${trackBars}</div>
+              <div class="metrics-row">${trackLabels}</div>
+            </div>`
           : ''
       }
     </div>
@@ -192,9 +137,7 @@ export function renderIdeaCards(ideas = [], scripts = [], activeScriptId = null)
 
   const scriptByIdea = new Map();
   for (const s of scripts || []) {
-    if (s.ideaId && !scriptByIdea.has(s.ideaId)) {
-      scriptByIdea.set(s.ideaId, s);
-    }
+    if (s.ideaId && !scriptByIdea.has(s.ideaId)) scriptByIdea.set(s.ideaId, s);
   }
 
   return ideas
@@ -203,31 +146,29 @@ export function renderIdeaCards(ideas = [], scripts = [], activeScriptId = null)
       const isSelected = existingScript && existingScript.id === activeScriptId;
 
       return `
-        <article class="idea-card ${isSelected ? 'selected' : ''}" data-idea-id="${escapeHtml(idea.id)}">
+        <article class="idea-card ${isSelected ? 'selected' : ''}" data-idea-id="${escapeHtml(idea.id)}" style="padding:15px 16px;gap:10px;">
           <div class="idea-tags">
             <span class="tag tag-accent">${escapeHtml(idea.archetype)}</span>
-            <span class="tag mono">${escapeHtml(idea.mappedSeconds)}s · ${escapeHtml(idea.platformFit)}</span>
+            <span class="tag mono">${escapeHtml(idea.mappedSeconds)}s · ${escapeHtml(idea.budgetTier || '轻资产')}</span>
           </div>
 
-          <h3 class="idea-title">${escapeHtml(idea.title)}</h3>
+          <h3 class="idea-title" style="font-size:1.02rem;">${escapeHtml(idea.title)}</h3>
 
-          ${idea.hook3s ? `<blockquote class="idea-hook" style="margin:0;">${escapeHtml(idea.hook3s)}</blockquote>` : ''}
+          ${idea.hook3s ? `<blockquote class="idea-hook" style="margin:0;padding:7px 10px;font-size:0.84rem;">${escapeHtml(idea.hook3s)}</blockquote>` : ''}
 
-          <div class="idea-details">
-            <div class="idea-detail-line"><strong>创意切口：</strong>${escapeHtml(idea.creativeTwist)}</div>
-            <div class="idea-detail-line"><strong>视觉观感：</strong>${escapeHtml(idea.visualMood)}</div>
-            ${idea.logicHighlight ? `<div class="idea-detail-line"><strong>逻辑推进：</strong>${escapeHtml(idea.logicHighlight)}</div>` : ''}
-            ${idea.viralPotential ? `<div class="idea-detail-line"><strong>传播亮点：</strong>${escapeHtml(idea.viralPotential)}</div>` : ''}
+          <div class="idea-details" style="gap:4px;font-size:0.82rem;">
+            <div class="idea-detail-line"><strong>创意：</strong>${escapeHtml(idea.creativeTwist)}</div>
+            <div class="idea-detail-line"><strong>观感：</strong>${escapeHtml(idea.visualMood)}</div>
           </div>
 
-          <div class="idea-foot">
-            <span class="idea-budget">${escapeHtml(idea.difficulty)} · ${escapeHtml(idea.budgetTier)}</span>
-            <div style="display:flex;gap:6px;flex-shrink:0;">
+          <div class="idea-foot" style="padding-top:8px;">
+            <span class="idea-budget">${escapeHtml(idea.difficulty)}</span>
+            <div style="display:flex;gap:6px;">
               ${
                 existingScript
-                  ? `<button type="button" class="btn btn-sm btn-dark" data-select-script="${escapeHtml(existingScript.id)}">查看脚本</button>
-                     <button type="button" class="btn btn-sm" data-expand-idea="${escapeHtml(idea.id)}" title="重新生成或用另一模型再写一版">再写一版</button>`
-                  : `<button type="button" class="btn btn-sm btn-primary" data-expand-idea="${escapeHtml(idea.id)}">生成完整脚本</button>`
+                  ? `<button type="button" class="btn btn-sm btn-dark" data-select-script="${escapeHtml(existingScript.id)}">查看</button>
+                     <button type="button" class="btn btn-sm" data-expand-idea="${escapeHtml(idea.id)}">重写</button>`
+                  : `<button type="button" class="btn btn-sm btn-primary" data-expand-idea="${escapeHtml(idea.id)}">写脚本</button>`
               }
             </div>
           </div>
@@ -246,8 +187,8 @@ export function renderScriptTabs(scripts = [], activeScriptId = null) {
       const badge = s.provider === 'sandbox' ? '沙盒' : s.model || s.provider;
       return `
         <button type="button" class="script-tab ${active}" data-select-script="${escapeHtml(s.id)}">
-          <span>#${scripts.length - idx} ${escapeHtml((s.title || '未命名脚本').slice(0, 18))}${(s.title || '').length > 18 ? '…' : ''}</span>
-          <span class="mono" style="opacity:0.78;font-size:0.74rem;">${sec}s · ${escapeHtml(badge)}</span>
+          <span>#${scripts.length - idx} ${escapeHtml((s.title || '脚本').slice(0, 14))}${(s.title || '').length > 14 ? '…' : ''}</span>
+          <span class="mono" style="opacity:0.78;font-size:0.73rem;">${sec}s · ${escapeHtml(badge)}</span>
         </button>
       `;
     })
@@ -282,17 +223,14 @@ export function renderScriptDossier(scriptRecord) {
         <tr>
           <td>
             <span class="shot-num">#${String(shot.shotNumber || idx + 1).padStart(2, '0')}</span>
-            <span class="shot-phase">${escapeHtml(shot.phase)}</span>
+            <span class="shot-tc" style="display:block;">${escapeHtml(shot.timecode)}</span>
+            <span class="shot-phase">${escapeHtml(shot.phase)} · ${escapeHtml(shot.seconds)}s</span>
             <button type="button" class="shot-edit-btn" data-edit-shot="${idx}">微调</button>
           </td>
           <td>
-            <span class="shot-tc">${escapeHtml(shot.timecode)}</span>
-            <span class="shot-sec">${escapeHtml(shot.seconds)}s</span>
-          </td>
-          <td>
-            <div><strong>${escapeHtml(shot.shotSize)}</strong></div>
-            <div style="color:var(--ink-secondary);margin-top:2px;">${escapeHtml(shot.cameraMove)}</div>
-            <div class="mono" style="font-size:0.72rem;color:var(--ink-muted);margin-top:4px;">${escapeHtml(shot.sceneGroup || '')}</div>
+            <strong>${escapeHtml(shot.shotSize)}</strong>
+            <div style="color:var(--ink-secondary);">${escapeHtml(shot.cameraMove)}</div>
+            <div class="mono" style="font-size:0.72rem;color:var(--ink-muted);">${escapeHtml(shot.sceneGroup || '')}</div>
           </td>
           <td>${escapeHtml(shot.visualAction)}</td>
           <td>
@@ -301,7 +239,7 @@ export function renderScriptDossier(scriptRecord) {
           </td>
           <td>
             <div>${escapeHtml(shot.soundDesign)}</div>
-            ${shot.postTip ? `<div style="margin-top:6px;font-size:0.78rem;color:var(--ink-muted);"><strong>后期：</strong>${escapeHtml(shot.postTip)}</div>` : ''}
+            ${shot.postTip ? `<div style="margin-top:4px;font-size:0.78rem;color:var(--ink-muted);">${escapeHtml(shot.postTip)}</div>` : ''}
           </td>
         </tr>
       `;
@@ -309,21 +247,13 @@ export function renderScriptDossier(scriptRecord) {
     .join('');
 
   const propsHtml = (prod.equipmentAndProps || [])
-    .map(
-      (item) => `
-      <li>
-        <strong>${escapeHtml(item.item)}</strong>
-        <span class="tag mono" style="margin:0 4px;">${escapeHtml(item.cost || '自有')}</span>
-        <span>${escapeHtml(item.purpose)}</span>
-      </li>
-    `
-    )
+    .map((item) => `<li><strong>${escapeHtml(item.item)}</strong>（${escapeHtml(item.cost || '自有')}）· ${escapeHtml(item.purpose)}</li>`)
     .join('');
 
   const shootingOrderHtml = (prod.shootingOrder || [])
     .map(
       (step) => `
-      <div class="order-step">
+      <div class="order-step" style="padding:11px 14px;">
         <div class="order-num">${escapeHtml(step.step)}</div>
         <div>
           <div class="order-title">
@@ -337,125 +267,73 @@ export function renderScriptDossier(scriptRecord) {
     )
     .join('');
 
-  const optChips = (audit.optimizationSuggestions || [])
-    .map(
-      (sug) =>
-        `<button type="button" class="sample-chip" data-quick-refine="${escapeHtml(sug)}">↗ ${escapeHtml(sug.slice(0, 44))}${sug.length > 44 ? '…' : ''}</button>`
-    )
-    .join('');
+  const logicLine = (sum.storyLogicChain || []).join(' → ');
 
   return `
     <article class="script-dossier">
-      <!-- Dossier Header -->
-      <div class="dossier-head">
+      <div class="dossier-head" style="padding:20px 24px 16px;gap:10px;">
         <div class="dossier-head-row">
           <div>
             <h3 class="dossier-title">${escapeHtml(s.title)}</h3>
             <p class="dossier-subtitle">${escapeHtml(s.subtitle)}</p>
           </div>
           <div class="export-bar">
-            <button type="button" class="btn btn-sm" id="btn-copy-md">复制 Markdown</button>
+            <button type="button" class="btn btn-sm" id="btn-copy-md">复制 MD</button>
             <a class="btn btn-sm" href="./api/scripts/${escapeHtml(scriptRecord.id)}/export?format=md" download>下载 .md</a>
-            <a class="btn btn-sm" href="./api/scripts/${escapeHtml(scriptRecord.id)}/export?format=json" download>导出 .json</a>
-            <button type="button" class="btn btn-sm btn-dark" id="btn-print-sheet">打印分镜通告单</button>
+            <button type="button" class="btn btn-sm btn-dark" id="btn-print-sheet">打印</button>
           </div>
         </div>
 
         <div class="metrics-row">
-          <span class="metric-chip">画幅 <strong>${escapeHtml(s.aspectRatio || '9:16')}</strong></span>
-          <span class="metric-chip">总时长 <strong class="mono">${escapeHtml(metrics.actualSeconds || s.targetSeconds)}s</strong></span>
-          <span class="metric-chip">分镜数 <strong class="mono">${shots.length} 镜</strong></span>
-          <span class="metric-chip">口播字数 <strong class="mono">${escapeHtml(metrics.dialogueChars ?? '-')} 字（${escapeHtml(metrics.charsPerSecond ?? '-')} 字/秒）</strong></span>
-          <span class="metric-chip">特写/空镜占比 <strong class="mono">${escapeHtml(metrics.brollRatio ?? '-')}%</strong></span>
+          <span class="metric-chip"><strong>${escapeHtml(s.aspectRatio || '9:16')}</strong></span>
+          <span class="metric-chip"><strong class="mono">${escapeHtml(metrics.actualSeconds || s.targetSeconds)}s · ${shots.length}镜</strong></span>
+          <span class="metric-chip"><strong class="mono">${escapeHtml(metrics.dialogueChars ?? '-')}字（${escapeHtml(metrics.charsPerSecond ?? '-')}字/秒）</strong></span>
+          <span class="metric-chip">特写空镜 <strong class="mono">${escapeHtml(metrics.brollRatio ?? '-')}%</strong></span>
+          <span class="metric-chip">质检 <strong class="mono">${escapeHtml(audit.overallScore || 90)}分</strong></span>
           <span class="metric-chip mono">${escapeHtml(formatProviderTag(scriptRecord.provider, scriptRecord.model, scriptRecord.reasoningLevel))}</span>
         </div>
       </div>
 
-      <!-- Sticky Jump Nav -->
-      <nav class="dossier-nav" aria-label="脚本章节导航">
-        <a class="dossier-nav-link" href="#block-logic">一、创意与逻辑</a>
-        <a class="dossier-nav-link" href="#block-visual">二、视觉观感与声景</a>
-        <a class="dossier-nav-link" href="#block-storyboard">三、逐镜分镜表（${shots.length}镜）</a>
-        <a class="dossier-nav-link" href="#block-production">四、实拍步骤与方案</a>
-        <a class="dossier-nav-link" href="#block-audit">五、导演审片质检</a>
-      </nav>
-
-      <!-- Dossier Body -->
-      <div class="dossier-body">
-        <!-- 1. Creative Concept & Logic -->
-        <section id="block-logic" class="dossier-block">
-          <h4 class="block-heading">一、创意点与叙事逻辑</h4>
-          ${sum.openingHook ? `<blockquote class="idea-hook" style="margin:0;font-size:0.95rem;"><strong>前 3 秒黄金钩子：</strong>${escapeHtml(sum.openingHook)}</blockquote>` : ''}
+      <div class="dossier-body" style="padding:22px 24px;gap:24px;">
+        <!-- 1. 创意、逻辑与观感（紧凑一屏） -->
+        <section id="block-logic" class="dossier-block" style="gap:10px;">
+          <h4 class="block-heading">一、创意、逻辑与观感</h4>
+          ${sum.openingHook ? `<blockquote class="idea-hook" style="margin:0;"><strong>前3秒钩子：</strong>${escapeHtml(sum.openingHook)}</blockquote>` : ''}
           <div class="two-col">
-            <div class="info-panel">
-              <h4>核心命题与创意亮点</h4>
-              ${sum.coreThesis ? `<p style="font-size:0.9rem;color:var(--ink-primary);">${escapeHtml(sum.coreThesis)}</p>` : ''}
-              <ul class="clean-list">
-                ${(sum.creativePoints || []).map((pt) => `<li>${escapeHtml(pt)}</li>`).join('')}
+            <div class="info-panel" style="padding:13px 15px;">
+              <h4>创意与逻辑</h4>
+              ${logicLine ? `<p style="font-size:0.86rem;color:var(--ink-primary);font-weight:500;">${escapeHtml(logicLine)}</p>` : ''}
+              <ul class="clean-list" style="font-size:0.86rem;">
+                ${(sum.creativePoints || []).slice(0, 3).map((pt) => `<li>${escapeHtml(pt)}</li>`).join('')}
               </ul>
+              ${(sum.titleOptions || []).length > 1 ? `<div style="font-size:0.8rem;color:var(--ink-muted);margin-top:4px;">备选标题：${escapeHtml(sum.titleOptions.slice(0, 3).join(' / '))}</div>` : ''}
             </div>
-            <div class="info-panel">
-              <h4>叙事逻辑推进链</h4>
-              <ul class="clean-list">
-                ${(sum.storyLogicChain || []).map((step) => `<li>${escapeHtml(step)}</li>`).join('')}
-              </ul>
-            </div>
-          </div>
-          <div class="two-col">
-            <div class="info-panel">
-              <h4>备选爆款标题与封面方案</h4>
-              <ul class="clean-list">
-                ${(sum.titleOptions || []).map((t) => `<li><strong>${escapeHtml(t)}</strong></li>`).join('')}
-              </ul>
-              ${sum.coverConcept ? `<p style="margin-top:6px;font-size:0.85rem;color:var(--ink-secondary);"><strong>封面构图：</strong>${escapeHtml(sum.coverConcept)}</p>` : ''}
-            </div>
-            <div class="info-panel">
-              <h4>留存、收藏与转发诱因</h4>
-              <ul class="clean-list">
-                ${(sum.shareTriggers || []).map((t) => `<li>${escapeHtml(t)}</li>`).join('')}
-              </ul>
+            <div class="info-panel" style="padding:13px 15px;">
+              <h4>视觉观感与声景</h4>
+              <p style="font-size:0.87rem;color:var(--ink-primary);font-weight:500;">${escapeHtml(vis.lookAndFeel)}</p>
+              <div class="palette-row">${swatches}</div>
+              <div style="font-size:0.84rem;color:var(--ink-secondary);"><strong>布光：</strong>${escapeHtml(vis.lightingPlan)}</div>
+              <div style="font-size:0.84rem;color:var(--ink-secondary);"><strong>机位：</strong>${escapeHtml(vis.cameraStyle)}</div>
+              <div style="font-size:0.84rem;color:var(--ink-secondary);"><strong>声音：</strong>${escapeHtml(vis.soundDesign)}</div>
             </div>
           </div>
         </section>
 
-        <!-- 2. Visual Aesthetics & Sound -->
-        <section id="block-visual" class="dossier-block">
-          <h4 class="block-heading">二、视觉观感与声景设定</h4>
-          <div class="info-panel">
-            <h4>整体观感与影调色卡</h4>
-            <p style="font-size:0.94rem;color:var(--ink-primary);font-weight:500;">${escapeHtml(vis.lookAndFeel)}</p>
-            <div class="palette-row" style="margin-top:6px;">${swatches}</div>
-          </div>
-          <div class="two-col">
-            <div class="info-panel">
-              <h4>布光与机位美学</h4>
-              <p style="font-size:0.88rem;color:var(--ink-secondary);"><strong>布光方案：</strong>${escapeHtml(vis.lightingPlan)}</p>
-              <p style="font-size:0.88rem;color:var(--ink-secondary);"><strong>焦段运镜：</strong>${escapeHtml(vis.cameraStyle)}</p>
-            </div>
-            <div class="info-panel">
-              <h4>收音、物理同期声与后期包装</h4>
-              <p style="font-size:0.88rem;color:var(--ink-secondary);"><strong>声音设计：</strong>${escapeHtml(vis.soundDesign)}</p>
-              <p style="font-size:0.88rem;color:var(--ink-secondary);"><strong>字幕包装：</strong>${escapeHtml(vis.subtitleAndPackaging)}</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- 3. Shot-by-Shot Storyboard -->
-        <section id="block-storyboard" class="dossier-block">
+        <!-- 2. 逐镜分镜脚本表 -->
+        <section id="block-storyboard" class="dossier-block" style="gap:10px;">
           <h4 class="block-heading">
-            <span>三、逐镜分镜脚本表</span>
-            <span class="mono" style="font-size:0.78rem;font-weight:500;color:var(--ink-muted);">点击任意镜号「微调」可实时修改并重算时间轴</span>
+            <span>二、逐镜分镜（${shots.length} 镜）</span>
+            <span class="mono" style="font-size:0.75rem;color:var(--ink-muted);">点「微调」实时重算时间轴</span>
           </h4>
           <div class="storyboard-wrap">
             <table class="storyboard-table">
               <thead>
                 <tr>
-                  <th style="width:92px;">镜号/段落</th>
-                  <th style="width:96px;">时间轴</th>
-                  <th style="width:155px;">景别与运镜</th>
-                  <th style="width:230px;">画面与动作调度</th>
-                  <th style="width:235px;">台词（口播 / VO）</th>
-                  <th style="width:185px;">同期声与后期</th>
+                  <th style="width:105px;">镜号/时间</th>
+                  <th style="width:145px;">景别与运镜</th>
+                  <th style="width:230px;">画面动作</th>
+                  <th style="width:240px;">台词（口播 / VO）</th>
+                  <th style="width:175px;">音效 / 后期</th>
                 </tr>
               </thead>
               <tbody>${storyboardRows}</tbody>
@@ -463,89 +341,45 @@ export function renderScriptDossier(scriptRecord) {
           </div>
         </section>
 
-        <!-- 4. Production Plan & Shooting Steps -->
-        <section id="block-production" class="dossier-block">
-          <h4 class="block-heading">四、拍摄步骤与现场执行方案</h4>
-          <div class="metrics-row">
-            <span class="metric-chip">耗时预估 <strong>${escapeHtml(prod.estimatedPrepTime || '-')}</strong></span>
-            <span class="metric-chip">预算分级 <strong>${escapeHtml(prod.estimatedBudget || '-')}</strong></span>
-            <span class="metric-chip">场地建议 <strong>${escapeHtml(prod.locationSuggestion || '-')}</strong></span>
-          </div>
+        <!-- 3. 顺场拍摄步骤与执行清单 -->
+        <section id="block-production" class="dossier-block" style="gap:12px;">
+          <h4 class="block-heading">
+            <span>三、实拍步骤与方案</span>
+            <span class="mono" style="font-size:0.76rem;color:var(--ink-muted);">${escapeHtml(prod.estimatedPrepTime || '')} · ${escapeHtml(prod.estimatedBudget || '')}</span>
+          </h4>
 
-          <div class="info-panel">
-            <h4>器材与低成本道具清单</h4>
-            <ul class="clean-list">${propsHtml}</ul>
-          </div>
-
-          <div>
-            <div class="field-label" style="margin-bottom:8px;">现场顺场实拍步骤（按机位/灯光合并，告别按剧情来回拆灯）</div>
-            <div class="order-list">${shootingOrderHtml}</div>
-          </div>
+          <div class="order-list">${shootingOrderHtml}</div>
 
           <div class="two-col">
-            <div class="info-panel">
-              <h4>现场提词与降 NG 技巧</h4>
-              <ul class="clean-list">
-                ${(prod.antiNgTips || []).map((t) => `<li>${escapeHtml(t)}</li>`).join('')}
+            <div class="info-panel" style="padding:13px 15px;">
+              <h4>道具与场地（${escapeHtml(prod.locationSuggestion || '轻资产')}）</h4>
+              <ul class="clean-list" style="font-size:0.85rem;">${propsHtml}</ul>
+            </div>
+            <div class="info-panel" style="padding:13px 15px;">
+              <h4>剪辑与避坑</h4>
+              <ul class="clean-list" style="font-size:0.85rem;">
+                ${(prod.postProductionSteps || []).slice(0, 3).map((t) => `<li>${escapeHtml(t)}</li>`).join('')}
+                ${(prod.antiNgTips || []).slice(0, 2).map((t) => `<li>${escapeHtml(t)}</li>`).join('')}
+                ${(audit.risks || []).slice(0, 1).map((r) => `<li style="color:var(--warn);"><strong>注意：</strong>${escapeHtml(r)}</li>`).join('')}
               </ul>
-            </div>
-            <div class="info-panel">
-              <h4>后期剪辑 5 步走</h4>
-              <ul class="clean-list">
-                ${(prod.postProductionSteps || []).map((t) => `<li>${escapeHtml(t)}</li>`).join('')}
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        <!-- 5. Director QA Audit -->
-        <section id="block-audit" class="dossier-block">
-          <h4 class="block-heading">五、导演审片与可拍性质检</h4>
-          <div class="audit-banner">
-            <div class="audit-score-ring ${(audit.overallScore || 90) < 82 ? 'warn' : ''}">
-              <span class="audit-score-val">${escapeHtml(audit.overallScore || 90)}</span>
-              <span class="audit-score-sub">可拍评分</span>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-              <div style="font-weight:700;font-size:1rem;">${escapeHtml(audit.verdict || '可直接进场开拍')}</div>
-              <div class="two-col">
-                <div>
-                  <div class="field-label" style="margin-bottom:4px;color:var(--ok);">核心亮点</div>
-                  <ul class="clean-list" style="font-size:0.84rem;">
-                    ${(audit.strengths || []).map((sItem) => `<li>${escapeHtml(sItem)}</li>`).join('')}
-                  </ul>
-                </div>
-                <div>
-                  <div class="field-label" style="margin-bottom:4px;color:var(--warn);">实拍风险与提醒</div>
-                  <ul class="clean-list" style="font-size:0.84rem;">
-                    ${(audit.risks || []).map((rItem) => `<li>${escapeHtml(rItem)}</li>`).join('')}
-                  </ul>
-                </div>
-              </div>
             </div>
           </div>
         </section>
       </div>
 
-      <!-- Inline Agent Refinement Bar -->
-      <div class="refine-box">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <strong style="font-size:0.9rem;">继续让 Agent 精修或换模型对比</strong>
-          <span style="font-size:0.78rem;color:var(--ink-muted);">精修将保留当前版本并新增一个对比标签页</span>
-        </div>
-
+      <!-- 精修指令栏 -->
+      <div class="refine-box" style="padding:16px 24px 20px;">
         <div class="sample-strip">
-          <button type="button" class="sample-chip" data-quick-refine="把整条脚本压缩成 30 秒极速高密版，保留最强反转钩子">压缩成 30 秒高密版</button>
-          <button type="button" class="sample-chip" data-quick-refine="改造成单人手机+百元以内超低成本拍摄方案，进一步减少露脸背稿比例">改成单人手机低成本拍</button>
-          <button type="button" class="sample-chip" data-quick-refine="把前 3 秒钩子改得更犀利反常识，强化评论区争议与转发欲">强化前 3 秒冲突钩子</button>
-          <button type="button" class="sample-chip" data-rewrite-provider="openai">用 OpenAI (gpt-6.2-sol · High) 重写对比</button>
-          <button type="button" class="sample-chip" data-rewrite-provider="google">用 Google (gemini-4-neon · High) 重写对比</button>
-          ${optChips}
+          <button type="button" class="sample-chip" data-quick-refine="压缩成 30 秒高密版">压成 30s</button>
+          <button type="button" class="sample-chip" data-quick-refine="改成单人手机低成本可拍方案">单人手机拍</button>
+          <button type="button" class="sample-chip" data-quick-refine="强化前 3 秒冲突反常识钩子">加强前3秒钩子</button>
+          <button type="button" class="sample-chip" data-rewrite-provider="openai">用 GPT-6.2 Sol 重写</button>
+          <button type="button" class="sample-chip" data-rewrite-provider="google">用 Gemini 4 Neon 重写</button>
         </div>
 
         <div class="refine-form">
-          <input id="refine-instruction-input" class="input refine-input" type="text" placeholder="输入自定义导演精修指令，例如：改成黑金暗调桌面微距风格，总时长调整为 60 秒..." />
-          <button id="btn-submit-refine" class="btn btn-primary" type="button">执行精修 Agent</button>
+          <input id="refine-instruction-input" class="input refine-input" type="text" placeholder="输入精修指令（如：改成黑金暗调桌面微距，总长 60 秒）" />
+          <button id="btn-submit-refine" class="btn btn-primary" type="button">精修</button>
         </div>
       </div>
     </article>

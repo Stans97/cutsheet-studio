@@ -1,10 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/**
- * Lightweight zero-dependency .env loader.
- * Does not override already-present process.env variables.
- */
 function loadDotEnvFiles(rootDir) {
   for (const filename of ['.env', '.env.local']) {
     const filePath = path.join(rootDir, filename);
@@ -33,6 +29,21 @@ function loadDotEnvFiles(rootDir) {
       }
     }
   }
+}
+
+function readSecretFromFiles(paths) {
+  for (const p of paths) {
+    if (!p) continue;
+    try {
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const val = fs.readFileSync(p, 'utf8').trim();
+        if (val) return val;
+      }
+    } catch {
+      // ignore unreadable paths
+    }
+  }
+  return '';
 }
 
 export const ROOT_DIR = path.resolve(new URL('..', import.meta.url).pathname);
@@ -66,6 +77,32 @@ export function getConfig() {
   const dataDir = path.resolve(ROOT_DIR, process.env.DATA_DIR || './data');
   const basePath = normalizeBasePath(process.env.BASE_PATH || '');
   const cookiePath = (process.env.COOKIE_PATH || (basePath ? `${basePath}/` : '/')).trim() || '/';
+
+  const openaiKey =
+    (process.env.OPENAI_API_KEY || '').trim() ||
+    readSecretFromFiles([
+      process.env.OPENAI_API_KEY_FILE,
+      '/etc/cutsheet-studio/openai-api-key'
+    ]);
+
+  const googleKey =
+    (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim() ||
+    readSecretFromFiles([
+      process.env.GEMINI_API_KEY_FILE,
+      '/etc/cutsheet-studio/gemini-api-key',
+      '/etc/cutsheet-studio/google-api-key'
+    ]);
+
+  const gcpProject =
+    (process.env.GEMINI_GCP_PROJECT || '').trim() ||
+    readSecretFromFiles(['/etc/cutsheet-studio/gcp-project']);
+
+  const defaultGoogleBase = process.env.GEMINI_BASE_URL
+    ? process.env.GEMINI_BASE_URL
+    : gcpProject
+      ? `https://aiplatform.googleapis.com/v1/projects/${gcpProject}/locations/global/publishers/google`
+      : 'https://generativelanguage.googleapis.com/v1beta';
+
   return {
     port: Number(process.env.PORT || 3780),
     host: process.env.HOST || '0.0.0.0',
@@ -77,32 +114,32 @@ export function getConfig() {
       openai: {
         id: 'openai',
         label: 'OpenAI',
-        apiKey: (process.env.OPENAI_API_KEY || '').trim(),
+        apiKey: openaiKey,
         baseUrl: (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, ''),
         defaultModel: (process.env.OPENAI_MODEL || 'gpt-6.2-sol').trim(),
         defaultEffort: sanitizeOpenAIEffort(process.env.OPENAI_REASONING_EFFORT || 'high'),
         defaultProtocol: (process.env.OPENAI_PROTOCOL || 'responses').trim().toLowerCase(),
         allowedEfforts: OPENAI_ALLOWED_EFFORTS,
         presetModels: [
-          { id: 'gpt-6.2-sol', name: 'GPT-6.2 Sol（默认推荐）', note: '1.05M 上下文 · 高性价比推理与 Agent 编排' },
-          { id: 'gpt-6.2-astra', name: 'GPT-6.2 Astra', note: '旗舰深度推理模型，适合复杂叙事专题' },
-          { id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', note: '轻量快速模型，适合高频批量出稿' }
+          { id: 'gpt-6.2-sol', name: 'GPT-6.2 Sol（默认）', note: '1.05M 上下文 · High 推理' },
+          { id: 'gpt-6.2-astra', name: 'GPT-6.2 Astra', note: '旗舰深度推理' },
+          { id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', note: '轻量快速' }
         ]
       },
       google: {
         id: 'google',
         label: 'Google Gemini',
-        apiKey: (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim(),
-        baseUrl: (process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, ''),
+        apiKey: googleKey,
+        baseUrl: defaultGoogleBase.replace(/\/+$/, ''),
         defaultModel: (process.env.GEMINI_MODEL || 'gemini-4-neon').trim(),
         defaultEffort: sanitizeGoogleThinkingLevel(process.env.GEMINI_THINKING_LEVEL || 'high'),
         defaultProtocol: (process.env.GEMINI_PROTOCOL || 'generate_content').trim().toLowerCase(),
         allowedEfforts: GOOGLE_ALLOWED_LEVELS,
         presetModels: [
-          { id: 'gemini-4-neon', name: 'Gemini 4 Neon（默认推荐）', note: '1M 上下文 · 默认 High 深度思考 · Agent 编排利器' },
-          { id: 'gemini-4-argon', name: 'Gemini 4 Argon', note: '旗舰影视/多模态强推理模型' },
-          { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen', note: '高速高性价比推理模型' },
-          { id: 'gemini-4-carbon', name: 'Gemini 4 Carbon', note: '均衡型分析与创作模型' }
+          { id: 'gemini-4-neon', name: 'Gemini 4 Neon（默认）', note: '1M 上下文 · High 思考' },
+          { id: 'gemini-4-argon', name: 'Gemini 4 Argon', note: '旗舰强推理' },
+          { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen', note: '高速高性价比' },
+          { id: 'gemini-4-carbon', name: 'Gemini 4 Carbon', note: '均衡型' }
         ]
       }
     }
